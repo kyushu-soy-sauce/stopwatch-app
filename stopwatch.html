@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ベイブレードX 持久力測定</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f7fc;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .container {
+      background-color: #fff;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      padding: 30px;
+      text-align: center;
+      width: 320px;
+    }
+
+    h1 {
+      font-size: 24px;
+      color: #333;
+      margin-bottom: 20px;
+    }
+
+    select {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      font-size: 16px;
+    }
+
+    button {
+      background-color: #4CAF50;
+      color: white;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 5px;
+      font-size: 16px;
+      cursor: pointer;
+      margin: 10px;
+      transition: background-color 0.3s ease;
+    }
+
+    button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+
+    button:hover:not(:disabled) {
+      background-color: #45a049;
+    }
+
+    #stopwatch {
+      font-size: 48px;
+      font-weight: bold;
+      color: #333;
+      margin-top: 20px;
+      padding: 20px;
+      background-color: #e0e0e0;
+      border-radius: 10px;
+      width: 200px;
+      margin: 20px auto;
+    }
+
+    #countdown {
+      font-size: 24px;
+      color: #ff6347;
+      margin-top: 10px;
+      min-height: 30px; /* カウントダウンスペースを確保 */
+    }
+
+    .controls {
+      margin-top: 20px;
+    }
+
+    .status {
+      margin-top: 10px;
+      font-size: 18px;
+      color: #28a745;
+    }
+
+    .status.error {
+      color: #dc3545;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>ベイブレードX 持久力測定</h1>
+    
+    <div>
+      <label for="blades">ブレード</label>
+      <select id="blades"></select>
+    </div>
+    
+    <div>
+      <label for="ratchets">ラチェット</label>
+      <select id="ratchets"></select>
+    </div>
+    
+    <div>
+      <label for="bits">ビット</label>
+      <select id="bits"></select>
+    </div>
+
+    <div id="stopwatch">0.00</div>
+    <div id="countdown"></div>
+
+    <div class="controls">
+      <button id="startButton">スタート</button>
+      <button id="stopButton" disabled>ストップ</button>
+      <button id="resetButton" disabled>リセット</button>
+      <button id="recordButton">記録</button>
+    </div>
+
+    <div id="status" class="status"></div>
+  </div>
+
+  <script>
+    const apiUrl = 'https://script.google.com/macros/s/AKfycby2owbGs0CdpHT0n463HgsY3VBRTxFGYZtuKzxkdHUfyhPWuCPEvncTYznEqkKiF8eW/exec';
+    
+    let stopwatchInterval = null;
+    let startTime = 0;
+    let elapsedTime = 0;
+    let isRunning = false;
+
+    // データ取得成功表示
+    function showStatus(message, isError = false) {
+      const statusElement = document.getElementById('status');
+      statusElement.textContent = message;
+      if (isError) {
+        statusElement.classList.add('error');
+        statusElement.classList.remove('success');
+      } else {
+        statusElement.classList.add('success');
+        statusElement.classList.remove('error');
+      }
+    }
+
+    // スプレッドシートのデータを取得してドロップダウンに追加
+    fetch(apiUrl)
+      .then(response => response.json())
+      .then(data => {
+        const bladesSelect = document.getElementById('blades');
+        data.blades.forEach(item => {
+          const option = document.createElement('option');
+          option.value = item;
+          option.textContent = item;
+          bladesSelect.appendChild(option);
+        });
+
+        const ratchetsSelect = document.getElementById('ratchets');
+        data.ratchets.forEach(item => {
+          const option = document.createElement('option');
+          option.value = item;
+          option.textContent = item;
+          ratchetsSelect.appendChild(option);
+        });
+
+        const bitsSelect = document.getElementById('bits');
+        data.bits.forEach(item => {
+          const option = document.createElement('option');
+          option.value = item;
+          option.textContent = item;
+          bitsSelect.appendChild(option);
+        });
+
+        showStatus('データの取得に成功しました！');
+      })
+      .catch(error => {
+        console.error('パーツデータの取得エラー:', error);
+        showStatus('データの取得に失敗しました。', true);
+      });
+
+    // ストップウォッチを開始する
+    function startStopwatch() {
+      startTime = Date.now() - elapsedTime;
+      stopwatchInterval = setInterval(updateStopwatch, 10);
+      isRunning = true;
+      document.getElementById('startButton').disabled = true;
+      document.getElementById('stopButton').disabled = false;
+      document.getElementById('resetButton').disabled = false;
+    }
+
+    // ストップウォッチを止める
+    function stopStopwatch() {
+      clearInterval(stopwatchInterval);
+      isRunning = false;
+      document.getElementById('startButton').disabled = false;
+      document.getElementById('stopButton').disabled = true;
+    }
+
+    // ストップウォッチをリセットする
+    function resetStopwatch() {
+      clearInterval(stopwatchInterval);
+      elapsedTime = 0;
+      document.getElementById('stopwatch').textContent = "0.00";
+      document.getElementById('startButton').disabled = false;
+      document.getElementById('stopButton').disabled = true;
+      document.getElementById('resetButton').disabled = true;
+      isRunning = false;
+    }
+
+    // ストップウォッチの時間を更新する
+    function updateStopwatch() {
+      elapsedTime = Date.now() - startTime;
+      document.getElementById('stopwatch').textContent = (elapsedTime / 1000).toFixed(2);
+    }
+
+    // 記録ボタンの処理
+    document.getElementById('recordButton').addEventListener('click', () => {
+      const selectedBlade = document.getElementById('blades').value;
+      const selectedRatchet = document.getElementById('ratchets').value;
+      const selectedBit = document.getElementById('bits').value;
+      const time = new Date().toLocaleString();
+      const duration = (elapsedTime / 1000).toFixed(2);  // ストップウォッチの時間（秒）
+
+      // 記録処理（Google Apps ScriptのPOSTリクエスト）
+      fetch(apiUrl, {
+        method: 'POST',
+        body: new URLSearchParams({
+          'blade': selectedBlade,
+          'ratchet': selectedRatchet,
+          'bit': selectedBit,
+          'duration': duration
+        }),
+      })
+      .then(response => response.text())
+      .then(result => {
+        showStatus('記録が完了しました！');
+      })
+      .catch(error => {
+        console.error('記録エラー:', error);
+        showStatus('記録に失敗しました。', true);
+      });
+    });
+
+    // スタートボタンがクリックされたとき
+    document.getElementById('startButton').addEventListener('click', () => {
+      let countdown = 5;
+      const countdownElement = document.getElementById('countdown');
+      countdownElement.textContent = `スタートまで: ${countdown}秒`;
+      
+      const countdownInterval = setInterval(() => {
+        countdown--;
+        countdownElement.textContent = `スタートまで: ${countdown}秒`;
+        if (countdown === 0) {
+          clearInterval(countdownInterval);
+          countdownElement.textContent = '';
+          startStopwatch();
+        }
+      }, 1000);
+      
+      document.getElementById('startButton').disabled = true; // スタートボタン無効化
+    });
+
+    // ストップボタンがクリックされたとき
+    document.getElementById('stopButton').addEventListener('click', stopStopwatch);
+
+    // リセットボタンがクリックされたとき
+    document.getElementById('resetButton').addEventListener('click', resetStopwatch);
+  </script>
+</body>
+</html>
